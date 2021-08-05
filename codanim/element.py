@@ -40,10 +40,12 @@ class Element:
 
     def with_offset(self, **kwargs):
         # todo docstrings
-        return self._modified_copy(True, kwargs)
+        copy = self.copy()
+        return self._modified_copy(copy, True, kwargs)
 
     def but_with(self, **kwargs):
-        return self._modified_copy(False, kwargs)
+        copy = self.copy()
+        return self._modified_copy(copy, False, kwargs)
 
     @staticmethod
     def _set_stuff(is_offset, cpy, attribute, value):
@@ -54,13 +56,13 @@ class Element:
         else:
             setattr(cpy, attribute, value)
 
-    def _modified_copy(self, is_offset: bool, mod_mapping: dict):
+    @classmethod
+    def _modified_copy(cls, copy, is_offset: bool, mod_mapping: dict):
         """Return a copy of the element, but with one or more fields modified.
 
         Nested elements can have their fields modified by nesting with __.
         For example:
         """
-        cpy = self.copy()
 
         for attribute, value in mod_mapping.items():
 
@@ -68,17 +70,17 @@ class Element:
 
             if len(path) == 1:
                 # Non-nested attribute change
-                self._set_stuff(is_offset, cpy, attribute, value)
+                cls._set_stuff(is_offset, copy, attribute, value)
 
             else:
                 # Nested attribute change, e.g. circle__position__x=4
                 *nested_attr_chain, attribute = path
-                obj = cpy
+                obj = copy
                 for nested_attr in nested_attr_chain:
                     obj = getattr(obj, nested_attr)
-                self._set_stuff(is_offset, obj, attribute, value)
+                cls._set_stuff(is_offset, obj, attribute, value)
 
-        return cpy
+        return copy
 
 
 @attr.s(**attrs_options)
