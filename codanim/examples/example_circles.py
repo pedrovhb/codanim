@@ -1,5 +1,4 @@
 import pyglet
-from pyglet import shapes
 
 from codanim.element import Circle, Color, Position
 from codanim.scene import StaticScene
@@ -17,11 +16,11 @@ class CirclesScene(StaticScene):
         #  set list
         return [circle, c2]
 
+    class Configs:
+        enable_fps = True
+
 
 if __name__ == "__main__":
     scene = CirclesScene()
-    scene.renderer.extra_drawables.append(
-        pyglet.window.FPSDisplay(window=scene.renderer.window)
-    )
     pyglet.clock.schedule_interval(scene.draw, 1 / 60)
     pyglet.app.run()

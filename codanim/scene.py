@@ -16,14 +16,20 @@ class Renderer(Protocol):
 
 
 class PygletSceneRenderer(Renderer):
-    def __init__(self):
+    def __init__(self, configs):
         self.elements = None
         # for eg pyglet.window.FPSDisplay(window=scene.renderer.window)
         # could be kwarg for fps?
+
         self.extra_drawables = []
 
         self.window = self.create_window()
         self.window.on_draw = self.on_draw
+
+        if (enable_fps := getattr(configs, "enable_fps", None)) is not None:
+            if enable_fps:  # not usefulf for a bool, but useful for others l8r
+                fps_display = pyglet.window.FPSDisplay(window=self.window)
+                self.extra_drawables.append(fps_display)
 
     def create_window(self):
         return pyglet.window.Window(960, 540)
@@ -67,7 +73,10 @@ class SceneBase:
 
     @cached_property
     def renderer(self):
-        return self.renderer_cls()
+        return self.renderer_cls(self.Configs)
+
+    class Configs:
+        pass
 
 
 class StaticScene(SceneBase):
