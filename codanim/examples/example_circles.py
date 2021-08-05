@@ -1,15 +1,23 @@
-import pyglet
-import jurigged
-
-from codanim.element import Circle, Color, Position
-from codanim.examples.run_example import CirclesScene
+from codanim.element import Circle, Position, Color
 from codanim.scene import StaticScene
 
-jurigged.watch(".")
 
+class CirclesScene(StaticScene):
 
+    # alternative - @pyglet_draw?
+    def construct(self) -> list:
+        circle = Circle(Position(300, 300), 30, Color(120, 120, 255))
+        c2 = circle.but_with(position__x=325, color__g=255)
+        c3 = circle.but_with(color__r=255).with_offset(position__y=-25)
 
-if __name__ == "__main__":
-    scene = CirclesScene()
-    pyglet.clock.schedule_interval(scene.draw, 1 / 60)
-    pyglet.app.run()
+        c4 = c3.copy()
+        c4.position.x = 200
+        c4.color = c3.color.but_with(b=0)
+        # todo could just inspect locals to get list of elements
+        #  instead of having to return a list? or both - use list
+        #  if it's returned, otherwise use locals, or explicitly
+        #  set list
+        return [circle, c2, c3, c4]
+
+    class Configs:
+        enable_fps = True
