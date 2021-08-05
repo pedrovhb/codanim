@@ -1,0 +1,30 @@
+>>>>>> import sys
+>>>>>> import trace
+       
+       # create a Trace object, telling it what to ignore, and whether to
+       # do tracing or line-counting or both.
+>>>>>> tracer = trace.Trace(
+>>>>>>     ignoredirs=[sys.prefix, sys.exec_prefix],
+>>>>>>     count=1,
+>>>>>>     trace=1,
+       )
+       
+       
+>>>>>> def main():
+   11:     for i in range(10):
+   10:         if i % 3:
+    6:             print(i ** 2)
+               else:
+    4:             x = 2
+       
+    1:     print("ok!")
+       
+       
+       # run the new command using the given tracer
+>>>>>> tracer.run("main()")
+       
+       # make a report, placing output in the current directory
+>>>>>> r = tracer.results()
+>>>>>> print(r)
+>>>>>> breakpoint()
+>>>>>> r.write_results(show_missing=True, coverdir=".")
