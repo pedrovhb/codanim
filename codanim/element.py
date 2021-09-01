@@ -2,12 +2,15 @@ import math
 import pickle
 import time
 from datetime import timedelta
+from typing import Any
 
-import attr
+from attr import attrs
+import pyglet.text
 from pyglet import shapes
 
 
 def __no_reference_converter(value):
+    print(value)
     if isinstance(value, Element):
         return value.copy()
     return value
@@ -31,12 +34,22 @@ attrs_options = dict(
     auto_attribs=True, field_transformer=__ensure_no_references, slots=True
 )
 
+FROM_PARENT = object()
 
-@attr.s(**attrs_options)
+
+class PartialElement:
+    def __init__(self, element_cls, element_kwargs):
+        self.element_cls = element_cls
+        self.element_kwargs = element_kwargs
+
+
+@attrs(**attrs_options)
 class Element:
     def copy(self):
         # it's faster than deepcopy and doesn't require recursing ¯\_(ツ)_/¯
-        return pickle.loads(pickle.dumps(self))
+        cpy = pickle.loads(pickle.dumps(self))
+        # cpy._update_tied_properties()
+        return cpy
 
     def with_offset(self, **kwargs):
         # todo docstrings
@@ -46,6 +59,33 @@ class Element:
     def but_with(self, **kwargs):
         copy = self.copy()
         return self._modified_copy(copy, False, kwargs)
+
+    def __getattribute__(self, item):
+        value = object.__getattribute__(self, item)
+        if isinstance(value, Property):
+            return value.get_value()
+        return value
+
+    # def _update_tied_properties(self):
+    #     setattr(self.circle.position, "x", TiedProperty(self.position, "x"))
+    #     setattr(self.circle.position, "y", TiedProperty(self.position, "y"))
+
+    def assign_from_parent(self):
+        for val in dir(self):
+            if val is FROM_PARENT:
+                return Position(200, 200)
+
+    def __attrs_post_init__(self):
+        self.assign_from_parent()
+        # self._update_tied_properties()
+
+    @staticmethod
+    def from_parent():
+        return FROM_PARENT
+
+    @classmethod
+    def partial(cls, **kwargs):
+        return PartialElement(cls, kwargs)
 
     @staticmethod
     def _set_stuff(is_offset, cpy, attribute, value):
@@ -83,13 +123,13 @@ class Element:
         return copy
 
 
-@attr.s(**attrs_options)
+@attrs(**attrs_options)
 class Position(Element):
     x: int
     y: int
 
 
-@attr.s(**attrs_options)
+@attrs(**attrs_options)
 class Color(Element):
     r: int
     g: int
@@ -105,13 +145,16 @@ class Color(Element):
 # maybe override __init__/new to assign to self copies of elements instead of references?
 
 
-@attr.s(**attrs_options)
+@attrs(**attrs_options)
 class Circle(Element):
     position: Position
     radius: int
     color: Color
 
     def add_to_batch(self, batch):
+        # [2021-08-06 01:48 PM] todo - this can be optimized by a lot. look into
+        #  either reusing shapes, and/or manually keeping vertex lists.
+        # https://pyglet.readthedocs.io/en/latest/programming_guide/graphics.html#guide-batched-rendering
         return [
             shapes.Circle(
                 self.position.x,
@@ -121,3 +164,70 @@ class Circle(Element):
                 batch=batch,
             )
         ]
+
+
+def property_provider(
+    source_el: Element,
+    target_el: Element,
+    source_property: str,
+    target_property: str,
+):
+    pass
+
+
+class Property:
+    def get_value(self):
+        raise NotImplementedError
+
+
+class ConstantProperty(Property):
+    def __init__(self, value):
+        self.value = value
+
+    def get_value(self):
+        return self.value
+
+
+class TiedProperty(Property):  # [2021-08-06 02:23 PM] todo - reconsider name
+    def __init__(self, tied_instance, tied_attribute):
+        self.tied_instance = tied_instance
+        self.tied_attribute = tied_attribute
+
+    def get_value(self):
+        return getattr(self.tied_instance, self.tied_attribute)
+
+
+@attrs(**attrs_options)
+class CircleWithValue(Element):
+    # circle position should be tied to the current element position.
+    # how can I do that?
+    #  possibilities:
+    #  - properties starting with an _ are treated differently by attrs
+    #  - element parent has a position attribute
+    #  - tied_attrs field on element classes
+    #  - avoid thinking about nice interfaces right now, try something and see
+    #    if it's reasonable
+    circle: Circle
+    position: Position
+    value: Any
+
+    # @circle.default
+
+    # PROPERTY_PROVIDERS = {
+    #     _circle.position:
+    # }
+    # def __attrs_pre_init__(self, *args, **kwargs):
+    #     print(args, kwargs)
+
+    def add_to_batch(self, batch):
+        circle_shapes = self.circle.add_to_batch(batch)
+        label = pyglet.text.Label(
+            text=str(self.value),
+            x=self.position.x,
+            y=self.position.y,
+            anchor_x="center",
+            anchor_y="center",
+            align="center",
+            batch=batch,
+        )
+        return [*circle_shapes, label]
